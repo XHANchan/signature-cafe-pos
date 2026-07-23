@@ -1,0 +1,954 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Signature Cafe — POS</title>
+<meta name="theme-color" content="#0f1410">
+<meta name="description" content="Point of sale app for Signature Cafe">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/favicon-32.png" sizes="32x32">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Sig Cafe POS">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0f1410;
+    --surface: #1a1f1b;
+    --surface2: #222820;
+    --border: #2d352e;
+    --accent: #4eca7a;
+    --accent-dim: #2a5e3f;
+    --accent-soft: rgba(78,202,122,0.12);
+    --gcash: #0040ff;
+    --gcash-soft: rgba(0,64,255,0.12);
+    --gcash-tag: #3d7bff;
+    --danger: #e05252;
+    --danger-soft: rgba(224,82,82,0.12);
+    --warning: #e8a838;
+    --text: #e8ede9;
+    --text-dim: #7a8a7c;
+    --text-muted: #4a574c;
+    --gold: #c8a84b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; min-height: 100vh; display: flex; flex-direction: column; }
+
+  /* HEADER */
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky; top: 0; z-index: 100;
+  }
+  .logo { font-family: 'DM Serif Display', serif; font-size: 1.3rem; color: var(--accent); letter-spacing: -0.02em; }
+  .logo span { color: var(--text-dim); font-style: italic; font-size: 0.85rem; }
+  .nav-tabs { display: flex; gap: 4px; }
+  .nav-tab {
+    padding: 6px 14px; border-radius: 20px; border: none; cursor: pointer;
+    font-family: 'DM Sans', sans-serif; font-size: 0.82rem; font-weight: 500;
+    background: transparent; color: var(--text-dim); transition: all 0.18s;
+  }
+  .nav-tab.active { background: var(--accent-soft); color: var(--accent); }
+  .nav-tab:hover:not(.active) { background: var(--surface2); color: var(--text); }
+
+  /* MAIN LAYOUT */
+  .app { display: flex; flex: 1; overflow: hidden; height: calc(100vh - 57px); }
+
+  /* SCREEN PANEL */
+  .screen { display: none; flex: 1; overflow-y: auto; }
+  .screen.active { display: flex; flex-direction: column; }
+
+  /* ═══════════════════════════════
+     SCREEN 1 — ORDER
+  ═══════════════════════════════ */
+  .order-layout { display: flex; flex: 1; overflow: hidden; height: 100%; }
+  .menu-panel { flex: 1; overflow-y: auto; padding: 16px; }
+  .cart-panel {
+    width: 320px; min-width: 300px; border-left: 1px solid var(--border);
+    display: flex; flex-direction: column; background: var(--surface);
+  }
+
+  .cat-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+  .cat-tab {
+    padding: 6px 14px; border-radius: 20px; border: 1px solid var(--border);
+    cursor: pointer; font-size: 0.82rem; font-weight: 500;
+    background: transparent; color: var(--text-dim); transition: all 0.15s;
+    font-family: 'DM Sans', sans-serif;
+  }
+  .cat-tab.active { background: var(--accent); color: #0f1410; border-color: var(--accent); }
+  .cat-tab:hover:not(.active) { border-color: var(--accent-dim); color: var(--text); }
+
+  .cat-section { display: none; }
+  .cat-section.active { display: block; }
+  .cat-label { font-size: 0.7rem; font-weight: 600; letter-spacing: 0.1em; color: var(--text-muted); text-transform: uppercase; margin-bottom: 10px; }
+
+  .menu-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; margin-bottom: 20px; }
+  .menu-card {
+    background: var(--surface2); border: 1px solid var(--border); border-radius: 12px;
+    padding: 12px; cursor: pointer; transition: all 0.15s; user-select: none;
+  }
+  .menu-card:hover { border-color: var(--accent-dim); background: #1e2620; transform: translateY(-1px); }
+  .menu-card:active { transform: scale(0.97); }
+  .menu-card .item-name { font-size: 0.9rem; font-weight: 500; line-height: 1.3; margin-bottom: 4px; }
+  .menu-card .item-sub { font-size: 0.72rem; color: var(--text-dim); margin-bottom: 6px; }
+  .menu-card .item-price { font-size: 0.95rem; font-weight: 600; color: var(--accent); }
+
+  /* CART */
+  .cart-header { padding: 14px 16px 10px; border-bottom: 1px solid var(--border); }
+  .cart-title { font-family: 'DM Serif Display', serif; font-size: 1.1rem; }
+  .cart-subtitle { font-size: 0.75rem; color: var(--text-dim); margin-top: 2px; }
+  .cart-items { flex: 1; overflow-y: auto; padding: 10px 14px; }
+  .cart-empty { text-align: center; color: var(--text-muted); font-size: 0.85rem; padding: 40px 0; }
+
+  .cart-item {
+    display: flex; align-items: flex-start; gap: 8px;
+    padding: 8px 0; border-bottom: 1px solid var(--border); position: relative;
+  }
+  .cart-item.editing { background: var(--accent-soft); margin: 0 -8px; padding: 8px 8px; border-radius: 8px; border-color: var(--accent-dim); }
+  .cart-item.struck .ci-name { text-decoration: line-through; color: var(--danger); opacity: 0.7; }
+  .cart-item.struck .ci-price { color: var(--danger); opacity: 0.7; }
+  .cart-item.replacement { background: var(--accent-soft); margin: 0 -8px; padding: 4px 8px; border-radius: 6px; border-left: 2px solid var(--accent); }
+  .ci-edit-btn {
+    background: none; border: none; cursor: pointer; color: var(--text-muted);
+    padding: 2px 4px; border-radius: 4px; font-size: 0.8rem; transition: all 0.15s; flex-shrink: 0; margin-top: 1px;
+  }
+  .ci-edit-btn:hover { color: var(--accent); background: var(--accent-soft); }
+  .ci-info { flex: 1; min-width: 0; }
+  .ci-name { font-size: 0.88rem; font-weight: 500; line-height: 1.3; }
+  .ci-sub { font-size: 0.72rem; color: var(--text-dim); margin-top: 1px; }
+  .ci-replacement-label { font-size: 0.68rem; color: var(--accent); font-weight: 600; letter-spacing: 0.05em; }
+  .ci-price { font-size: 0.88rem; font-weight: 600; flex-shrink: 0; }
+
+  .edit-actions {
+    display: none; background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 8px; padding: 8px; margin: 4px 0; gap: 8px;
+  }
+  .edit-actions.visible { display: flex; }
+  .edit-btn {
+    flex: 1; padding: 7px; border-radius: 6px; border: none; cursor: pointer;
+    font-family: 'DM Sans', sans-serif; font-size: 0.8rem; font-weight: 500; transition: all 0.15s;
+  }
+  .edit-btn.remove { background: var(--danger-soft); color: var(--danger); }
+  .edit-btn.remove:hover { background: var(--danger); color: #fff; }
+  .edit-btn.cancel { background: var(--surface); color: var(--text-dim); }
+  .edit-btn.cancel:hover { color: var(--text); }
+
+  .cart-total-row {
+    padding: 12px 16px; border-top: 1px solid var(--border);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .cart-total-label { font-size: 0.85rem; color: var(--text-dim); }
+  .cart-total-amount { font-family: 'DM Serif Display', serif; font-size: 1.5rem; color: var(--accent); }
+
+  .cart-actions { padding: 10px 14px 14px; display: flex; gap: 8px; }
+  .btn { border: none; cursor: pointer; font-family: 'DM Sans', sans-serif; font-weight: 500; border-radius: 10px; transition: all 0.17s; }
+  .btn-clear { flex: 0 0 auto; padding: 10px 14px; background: var(--surface2); color: var(--text-dim); font-size: 0.82rem; }
+  .btn-clear:hover { color: var(--danger); background: var(--danger-soft); }
+  .btn-confirm { flex: 1; padding: 12px; background: var(--accent); color: #0f1410; font-size: 0.92rem; font-weight: 600; }
+  .btn-confirm:hover { background: #5edb8a; }
+  .btn-confirm:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* PAYMENT MODAL */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.75);
+    z-index: 200; align-items: center; justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+    padding: 24px; width: 360px; max-width: 95vw;
+  }
+  .modal-title { font-family: 'DM Serif Display', serif; font-size: 1.25rem; margin-bottom: 4px; }
+  .modal-sub { font-size: 0.8rem; color: var(--text-dim); margin-bottom: 18px; }
+  .pay-options { display: flex; gap: 10px; margin-bottom: 18px; }
+  .pay-option {
+    flex: 1; padding: 14px 12px; border-radius: 12px; border: 2px solid var(--border);
+    cursor: pointer; text-align: center; transition: all 0.15s; background: var(--surface2);
+  }
+  .pay-option.gcash { }
+  .pay-option.gcash.selected { border-color: var(--gcash); background: var(--gcash-soft); }
+  .pay-option.cash.selected { border-color: var(--accent); background: var(--accent-soft); }
+  .pay-option:hover:not(.selected) { border-color: var(--text-muted); }
+  .pay-option-icon { font-size: 1.4rem; margin-bottom: 4px; }
+  .pay-option-name { font-size: 0.9rem; font-weight: 600; }
+  .pay-option-hint { font-size: 0.72rem; color: var(--text-dim); margin-top: 2px; }
+  .pay-option.gcash.selected .pay-option-name { color: var(--gcash-tag); }
+  .pay-option.cash.selected .pay-option-name { color: var(--accent); }
+
+  .pay-input-group { margin-bottom: 14px; display: none; }
+  .pay-input-group.visible { display: block; }
+  .pay-input-label { font-size: 0.78rem; color: var(--text-dim); margin-bottom: 6px; }
+  .pay-input {
+    width: 100%; padding: 10px 12px; background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 8px; color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 0.95rem;
+    outline: none;
+  }
+  .pay-input:focus { border-color: var(--accent); }
+  .change-display {
+    background: var(--accent-soft); border-radius: 8px; padding: 8px 12px;
+    font-size: 0.85rem; color: var(--accent); margin-bottom: 14px; display: none;
+  }
+  .change-display.visible { display: block; }
+  .modal-btns { display: flex; gap: 8px; }
+  .btn-modal-cancel { flex: 0 0 auto; padding: 10px 16px; background: var(--surface2); color: var(--text-dim); border-radius: 10px; font-size: 0.85rem; }
+  .btn-modal-confirm { flex: 1; padding: 11px; background: var(--accent); color: #0f1410; border-radius: 10px; font-size: 0.9rem; font-weight: 600; }
+  .btn-modal-confirm:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* ═══════════════════════════════
+     SCREEN 2 — DASHBOARD
+  ═══════════════════════════════ */
+  .dashboard-screen { padding: 20px; max-width: 800px; margin: 0 auto; width: 100%; }
+  .dash-date { font-size: 0.78rem; color: var(--text-dim); margin-bottom: 16px; }
+  .dash-date span { color: var(--text); font-weight: 500; }
+  .stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; margin-bottom: 20px; }
+  .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
+  .stat-val { font-family: 'DM Serif Display', serif; font-size: 1.6rem; margin-bottom: 2px; }
+  .stat-val.green { color: var(--accent); }
+  .stat-val.blue { color: var(--gcash-tag); }
+  .stat-val.dim { color: var(--text); }
+  .stat-label { font-size: 0.75rem; color: var(--text-dim); }
+
+  .dash-section-label { font-size: 0.7rem; font-weight: 600; letter-spacing: 0.1em; color: var(--text-muted); text-transform: uppercase; margin-bottom: 10px; }
+
+  .payment-bar { background: var(--surface2); border-radius: 8px; overflow: hidden; height: 8px; margin-bottom: 6px; }
+  .payment-bar-fill { height: 100%; background: var(--gcash-tag); border-radius: 8px; transition: width 0.5s; }
+  .payment-bar-labels { display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-dim); margin-bottom: 20px; }
+  .payment-bar-labels .gcash-lbl { color: var(--gcash-tag); }
+
+  /* Sales log */
+  .log-table { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+  .log-row {
+    display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+    border-bottom: 1px solid var(--border); font-size: 0.84rem;
+  }
+  .log-row:last-child { border-bottom: none; }
+  .log-row.header-row { font-size: 0.72rem; font-weight: 600; letter-spacing: 0.05em; color: var(--text-muted); text-transform: uppercase; }
+  .log-time { color: var(--text-dim); font-size: 0.78rem; flex: 0 0 55px; }
+  .log-items { flex: 1; color: var(--text); line-height: 1.4; }
+  .log-total { font-weight: 600; flex: 0 0 60px; text-align: right; }
+  .log-badge {
+    flex: 0 0 auto; padding: 2px 8px; border-radius: 20px; font-size: 0.68rem; font-weight: 600;
+  }
+  .log-badge.gcash { background: var(--gcash-soft); color: var(--gcash-tag); border: 1px solid rgba(0,64,255,0.2); }
+  .log-badge.cash { background: var(--accent-soft); color: var(--accent); border: 1px solid var(--accent-dim); }
+  .log-empty { padding: 30px; text-align: center; color: var(--text-muted); font-size: 0.85rem; }
+
+  /* ═══════════════════════════════
+     SCREEN 3 — EXPENSES
+  ═══════════════════════════════ */
+  .expense-screen { padding: 20px; max-width: 600px; margin: 0 auto; width: 100%; }
+  .exp-header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 16px; }
+  .exp-title { font-family: 'DM Serif Display', serif; font-size: 1.4rem; }
+  .exp-total-label { font-size: 0.78rem; color: var(--text-dim); text-align: right; }
+  .exp-total-val { font-family: 'DM Serif Display', serif; font-size: 1.3rem; color: var(--danger); }
+
+  .exp-add-row { display: flex; gap: 8px; margin-bottom: 16px; }
+  .exp-input {
+    flex: 1; padding: 10px 12px; background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 8px; color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 0.88rem; outline: none;
+  }
+  .exp-input:focus { border-color: var(--accent); }
+  .exp-input.amount { flex: 0 0 120px; }
+  .btn-add-exp {
+    padding: 10px 16px; background: var(--accent); color: #0f1410; border-radius: 8px;
+    font-weight: 600; font-size: 0.88rem; border: none; cursor: pointer; transition: background 0.15s;
+  }
+  .btn-add-exp:hover { background: #5edb8a; }
+
+  .exp-list { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+  .exp-item { display: flex; align-items: center; padding: 11px 14px; border-bottom: 1px solid var(--border); gap: 10px; }
+  .exp-item:last-child { border-bottom: none; }
+  .exp-desc { flex: 1; font-size: 0.88rem; }
+  .exp-amount { font-weight: 600; font-size: 0.88rem; color: var(--danger); }
+  .exp-del { background: none; border: none; cursor: pointer; color: var(--text-muted); font-size: 0.9rem; padding: 2px 6px; border-radius: 4px; transition: all 0.15s; }
+  .exp-del:hover { color: var(--danger); background: var(--danger-soft); }
+  .exp-empty { padding: 30px; text-align: center; color: var(--text-muted); font-size: 0.85rem; }
+
+  /* SUCCESS FLASH */
+  .flash {
+    position: fixed; bottom: 24px; right: 24px; z-index: 300;
+    background: var(--surface); border: 1px solid var(--accent-dim);
+    border-radius: 12px; padding: 12px 18px; font-size: 0.88rem;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    transform: translateY(80px); opacity: 0; transition: all 0.3s;
+    max-width: 280px;
+  }
+  .flash.show { transform: translateY(0); opacity: 1; }
+  .flash .flash-icon { font-size: 1.1rem; margin-right: 6px; }
+
+  /* CUPS GOAL */
+  .cups-goal-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    padding: 16px; margin-bottom: 20px; position: relative; overflow: hidden;
+  }
+  .cups-goal-card.achieved { border-color: var(--gold); background: linear-gradient(135deg, #1a1f1b 60%, rgba(200,168,75,0.08)); }
+  .cups-goal-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
+  .cups-goal-left { }
+  .cups-goal-label { font-size: 0.7rem; font-weight: 600; letter-spacing: 0.1em; color: var(--text-muted); text-transform: uppercase; margin-bottom: 4px; }
+  .cups-goal-count { font-family: 'DM Serif Display', serif; font-size: 2.2rem; line-height: 1; }
+  .cups-goal-count .cups-of { font-size: 1rem; color: var(--text-dim); font-family: 'DM Sans', sans-serif; font-weight: 400; }
+  .cups-goal-right { text-align: right; }
+  .cups-goal-pct { font-family: 'DM Serif Display', serif; font-size: 1.4rem; color: var(--accent); }
+  .cups-goal-pct.achieved { color: var(--gold); }
+  .cups-goal-sub { font-size: 0.72rem; color: var(--text-dim); }
+  .cups-bar-track { background: var(--surface2); border-radius: 99px; height: 10px; overflow: visible; position: relative; margin-bottom: 8px; }
+  .cups-bar-fill {
+    height: 100%; border-radius: 99px; background: var(--accent);
+    transition: width 0.6s cubic-bezier(0.34,1.56,0.64,1); position: relative;
+    max-width: 100%;
+  }
+  .cups-bar-fill.achieved { background: linear-gradient(90deg, var(--accent), var(--gold)); }
+  .cups-bar-marker {
+    position: absolute; right: 0; top: 50%; transform: translate(50%, -50%);
+    width: 16px; height: 16px; border-radius: 50%; background: var(--accent);
+    border: 2px solid var(--bg); box-shadow: 0 0 0 2px var(--accent);
+  }
+  .cups-bar-marker.achieved { background: var(--gold); box-shadow: 0 0 8px var(--gold); }
+  .cups-bar-goal-line {
+    position: absolute; right: 0; top: -4px; bottom: -4px; width: 2px;
+    background: var(--border); border-radius: 2px;
+  }
+  .cups-remaining { font-size: 0.78rem; color: var(--text-dim); }
+  .cups-remaining.achieved { color: var(--gold); font-weight: 600; }
+
+  /* CONGRATS BANNER */
+  .congrats-banner {
+    display: none; background: linear-gradient(135deg, #1a1a0a, #2a2200);
+    border: 1px solid var(--gold); border-radius: 14px; padding: 18px 20px;
+    margin-bottom: 20px; text-align: center; position: relative; overflow: hidden;
+  }
+  .congrats-banner.show { display: block; }
+  .congrats-banner::before {
+    content: ''; position: absolute; inset: 0;
+    background: radial-gradient(ellipse at 50% 0%, rgba(200,168,75,0.15) 0%, transparent 70%);
+  }
+  .congrats-emoji { font-size: 2rem; display: block; margin-bottom: 6px; }
+  .congrats-title { font-family: 'DM Serif Display', serif; font-size: 1.4rem; color: var(--gold); margin-bottom: 4px; }
+  .congrats-msg { font-size: 0.84rem; color: var(--text-dim); line-height: 1.5; }
+  .congrats-over { font-size: 0.78rem; color: var(--accent); margin-top: 6px; font-weight: 500; }
+
+  /* SCROLLBAR */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+  @media (max-width: 640px) {
+    .order-layout { flex-direction: column; }
+    .cart-panel { width: 100%; min-width: unset; border-left: none; border-top: 1px solid var(--border); max-height: 45vh; }
+    .menu-panel { max-height: 55vh; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Signature Cafe <span>POS</span></div>
+  <div class="nav-tabs">
+    <button class="nav-tab active" onclick="switchScreen('order')">☕ Order</button>
+    <button class="nav-tab" onclick="switchScreen('dashboard')">📊 Dashboard</button>
+    <button class="nav-tab" onclick="switchScreen('expenses')">📋 Expenses</button>
+  </div>
+</header>
+
+<div class="app">
+
+  <!-- ═══ SCREEN 1: ORDER ═══ -->
+  <div class="screen active" id="screen-order">
+    <div class="order-layout">
+      <div class="menu-panel">
+        <div class="cat-tabs">
+          <button class="cat-tab active" onclick="switchCat('espresso')">Espresso</button>
+          <button class="cat-tab" onclick="switchCat('noncoffee')">Non-Coffee</button>
+          <button class="cat-tab" onclick="switchCat('matcha')">Matcha</button>
+          <button class="cat-tab" onclick="switchCat('soda')">Soda</button>
+          <button class="cat-tab" onclick="switchCat('addons')">Add-ons</button>
+        </div>
+
+        <div class="cat-section active" id="cat-espresso">
+          <div class="cat-label">Espresso</div>
+          <div class="menu-grid" id="grid-espresso"></div>
+        </div>
+        <div class="cat-section" id="cat-noncoffee">
+          <div class="cat-label">Non-Coffee</div>
+          <div class="menu-grid" id="grid-noncoffee"></div>
+        </div>
+        <div class="cat-section" id="cat-matcha">
+          <div class="cat-label">Matcha Series</div>
+          <div class="menu-grid" id="grid-matcha"></div>
+        </div>
+        <div class="cat-section" id="cat-soda">
+          <div class="cat-label">Soda</div>
+          <div class="menu-grid" id="grid-soda"></div>
+        </div>
+        <div class="cat-section" id="cat-addons">
+          <div class="cat-label">Add-ons</div>
+          <div class="menu-grid" id="grid-addons"></div>
+        </div>
+      </div>
+
+      <div class="cart-panel">
+        <div class="cart-header">
+          <div class="cart-title">Cart</div>
+          <div class="cart-subtitle" id="cart-subtitle">No items yet</div>
+        </div>
+        <div class="cart-items" id="cart-items">
+          <div class="cart-empty">Tap items from the menu to add them here.</div>
+        </div>
+        <div class="cart-total-row">
+          <div class="cart-total-label">Total</div>
+          <div class="cart-total-amount" id="cart-total">₱0</div>
+        </div>
+        <div class="cart-actions">
+          <button class="btn btn-clear" onclick="clearCart()">🗑 Clear</button>
+          <button class="btn btn-confirm" id="btn-confirm" onclick="openPayment()" disabled>Confirm Order →</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ SCREEN 2: DASHBOARD ═══ -->
+  <div class="screen" id="screen-dashboard">
+    <div class="dashboard-screen">
+      <div class="dash-date">Today: <span id="dash-date"></span></div>
+      <div class="stats-grid">
+        <div class="stat-card"><div class="stat-val dim" id="stat-total">₱0</div><div class="stat-label">Total Sales</div></div>
+        <div class="stat-card"><div class="stat-val blue" id="stat-gcash">₱0</div><div class="stat-label">Via GCash</div></div>
+        <div class="stat-card"><div class="stat-val dim" id="stat-cash">₱0</div><div class="stat-label">Via Cash</div></div>
+        <div class="stat-card"><div class="stat-val dim" id="stat-expenses">₱0</div><div class="stat-label">Expenses</div></div>
+        <div class="stat-card" style="grid-column: span 2;"><div class="stat-val green" id="stat-net">₱0</div><div class="stat-label">Net Today</div></div>
+      </div>
+      <!-- CONGRATS BANNER -->
+      <div class="congrats-banner" id="congrats-banner">
+        <span class="congrats-emoji">🏆☕🎉</span>
+        <div class="congrats-title">You crushed it today!</div>
+        <div class="congrats-msg">82 cups served — the cafe is on fire!<br>The team showed up and delivered. That's what Signature Cafe is made of.</div>
+        <div class="congrats-over" id="congrats-over"></div>
+      </div>
+
+      <!-- CUPS GOAL -->
+      <div class="cups-goal-card" id="cups-goal-card">
+        <div class="cups-goal-top">
+          <div class="cups-goal-left">
+            <div class="cups-goal-label">☕ Cups Served Today</div>
+            <div class="cups-goal-count">
+              <span id="cups-count">0</span>
+              <span class="cups-of"> / 82</span>
+            </div>
+          </div>
+          <div class="cups-goal-right">
+            <div class="cups-goal-pct" id="cups-pct">0%</div>
+            <div class="cups-goal-sub">of daily goal</div>
+          </div>
+        </div>
+        <div class="cups-bar-track">
+          <div class="cups-bar-fill" id="cups-bar-fill" style="width:0%">
+            <div class="cups-bar-marker" id="cups-bar-marker"></div>
+          </div>
+        </div>
+        <div class="cups-remaining" id="cups-remaining">82 cups to go — let's get brewing!</div>
+      </div>
+
+      <div class="dash-section-label">Payment split</div>
+      <div class="payment-bar"><div class="payment-bar-fill" id="pay-bar-fill" style="width:0%"></div></div>
+      <div class="payment-bar-labels">
+        <span class="gcash-lbl" id="pay-bar-gcash-lbl">GCash 0%</span>
+        <span id="pay-bar-cash-lbl">Cash 0%</span>
+      </div>
+      <div class="dash-section-label">Orders today: <span id="orders-today-count" style="color:var(--text);font-weight:600;">0</span></div>
+      <div class="log-table" id="sales-log">
+        <div class="log-empty">No orders yet today.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ SCREEN 3: EXPENSES ═══ -->
+  <div class="screen" id="screen-expenses">
+    <div class="expense-screen">
+      <div class="exp-header">
+        <div>
+          <div class="exp-title">Expense Tracker</div>
+          <div style="font-size:0.78rem;color:var(--text-dim);margin-top:2px;">Auto-deducted from today's net</div>
+        </div>
+        <div style="text-align:right;">
+          <div class="exp-total-label">Total expenses</div>
+          <div class="exp-total-val" id="exp-total">₱0</div>
+        </div>
+      </div>
+      <div class="exp-add-row">
+        <input class="exp-input" id="exp-desc" placeholder="Description (e.g. Milk, Cups)">
+        <input class="exp-input amount" id="exp-amount" type="number" placeholder="₱ Amount" min="0">
+        <button class="btn-add-exp" onclick="addExpense()">+ Add</button>
+      </div>
+      <div class="exp-list" id="exp-list">
+        <div class="exp-empty">No expenses logged yet.</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- PAYMENT MODAL -->
+<div class="modal-overlay" id="pay-modal">
+  <div class="modal">
+    <div class="modal-title">Choose Payment</div>
+    <div class="modal-sub">Total: <strong id="modal-total">₱0</strong></div>
+    <div class="pay-options">
+      <div class="pay-option gcash" onclick="selectPayment('gcash')">
+        <div class="pay-option-icon">📱</div>
+        <div class="pay-option-name">GCash</div>
+        <div class="pay-option-hint">QR / ref no.</div>
+      </div>
+      <div class="pay-option cash" onclick="selectPayment('cash')">
+        <div class="pay-option-icon">💵</div>
+        <div class="pay-option-name">Cash</div>
+        <div class="pay-option-hint">Enter tendered</div>
+      </div>
+    </div>
+    <div class="pay-input-group" id="gcash-input-group">
+      <div class="pay-input-label">GCash Reference No. (optional)</div>
+      <input class="pay-input" id="gcash-ref" placeholder="e.g. 123456789012">
+    </div>
+    <div class="pay-input-group" id="cash-input-group">
+      <div class="pay-input-label">Amount Tendered (₱)</div>
+      <input class="pay-input" id="cash-tendered" type="number" placeholder="0" oninput="calcChange()">
+    </div>
+    <div class="change-display" id="change-display"></div>
+    <div class="modal-btns">
+      <button class="btn btn-modal-cancel" onclick="closePayment()">Cancel</button>
+      <button class="btn btn-modal-confirm" id="btn-modal-confirm" onclick="confirmOrder()" disabled>Confirm Sale ✓</button>
+    </div>
+  </div>
+</div>
+
+<!-- FLASH -->
+<div class="flash" id="flash"><span class="flash-icon">✅</span><span id="flash-msg"></span></div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+//  DATA
+// ═══════════════════════════════════════════════════════
+const MENU = {
+  espresso: [
+    { name: 'Americano', sub: 'Hot / Cold', price: 89 },
+    { name: 'Caramel Macchiato', sub: 'Hot / Cold', price: 89 },
+    { name: 'Spanish Latte', sub: 'Hot / Cold', price: 89 },
+    { name: 'Strawberry Espresso', sub: 'Cold', price: 89 },
+    { name: 'Blueberry Espresso', sub: 'Cold', price: 89 },
+    { name: 'Chocolate Latte', sub: 'Hot / Cold', price: 89 },
+    { name: 'Vanilla Latte', sub: 'Cold', price: 89 },
+    { name: 'Hazelnut Latte', sub: 'Cold', price: 89 },
+    { name: 'Biscoff Latte', sub: 'Cold', price: 89 },
+  ],
+  noncoffee: [
+    { name: 'Choco Lava', sub: 'Cold', price: 79 },
+    { name: 'Milky Strawberry', sub: 'Cold', price: 79 },
+    { name: 'Milky Blueberry', sub: 'Cold', price: 79 },
+    { name: 'Milky Biscoff', sub: 'Cold', price: 79 },
+    { name: 'Milky Hazelnut', sub: 'Cold', price: 79 },
+    { name: 'Salted Caramel', sub: 'Cold', price: 79 },
+  ],
+  matcha: [
+    { name: 'Milky Matcha', sub: 'Hot / Cold', price: 79 },
+    { name: 'Strawberry Matcha', sub: 'Cold', price: 79 },
+    { name: 'Blueberry Matcha', sub: 'Cold', price: 79 },
+    { name: 'Pure Matcha', sub: 'Hot / Cold', price: 79 },
+    { name: 'Dirty Matcha', sub: 'Hot / Cold', price: 79 },
+    { name: 'Oreo Matcha', sub: 'Cold', price: 79 },
+  ],
+  soda: [
+    { name: 'Strawberry Soda', sub: 'Cold', price: 59 },
+    { name: 'Lychee Soda', sub: 'Cold', price: 59 },
+    { name: 'Blueberry Soda', sub: 'Cold', price: 59 },
+    { name: 'Green Apple Soda', sub: 'Cold', price: 59 },
+    { name: 'Blue Lemonade', sub: 'Cold', price: 59 },
+  ],
+  addons: [
+    { name: 'Espresso Shot', sub: 'Add-on', price: 30 },
+    { name: 'Flavor Syrup', sub: 'Add-on', price: 20 },
+    { name: 'Milk Syrup', sub: 'Add-on', price: 20 },
+  ]
+};
+
+// ═══════════════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════════════
+let cart = []; // { id, name, sub, price, struck, replacedBy, isReplacement }
+let editingId = null;
+let payMethod = null;
+let salesLog = JSON.parse(localStorage.getItem('sc_sales') || '[]');
+let expenses = JSON.parse(localStorage.getItem('sc_expenses') || '[]');
+
+function todayKey() { return new Date().toISOString().slice(0,10); }
+function todaySales() { return salesLog.filter(s => s.date === todayKey()); }
+function todayExpenses() { return expenses.filter(e => e.date === todayKey()); }
+
+// ═══════════════════════════════════════════════════════
+//  MENU RENDER
+// ═══════════════════════════════════════════════════════
+function buildMenus() {
+  for (const [cat, items] of Object.entries(MENU)) {
+    const grid = document.getElementById('grid-' + cat);
+    grid.innerHTML = items.map(item => `
+      <div class="menu-card" onclick="addToCart(${JSON.stringify(item).replace(/"/g,'&quot;')})">
+        <div class="item-name">${item.name}</div>
+        <div class="item-sub">${item.sub}</div>
+        <div class="item-price">₱${item.price}</div>
+      </div>
+    `).join('');
+  }
+}
+
+function switchCat(cat) {
+  document.querySelectorAll('.cat-tab').forEach((t,i) => {
+    t.classList.toggle('active', ['espresso','noncoffee','matcha','soda','addons'][i] === cat);
+  });
+  document.querySelectorAll('.cat-section').forEach(s => s.classList.remove('active'));
+  document.getElementById('cat-' + cat).classList.add('active');
+}
+
+// ═══════════════════════════════════════════════════════
+//  CART
+// ═══════════════════════════════════════════════════════
+let cartIdSeq = 0;
+function addToCart(item) {
+  if (editingId !== null) {
+    // Replace the struck item
+    const struckIdx = cart.findIndex(c => c.id === editingId);
+    if (struckIdx === -1) { editingId = null; renderCart(); return; }
+    cart[struckIdx].replacedBy = item.name;
+    const newItem = { ...item, id: ++cartIdSeq, isReplacement: true, replacingId: editingId };
+    cart.splice(struckIdx + 1, 0, newItem);
+    editingId = null;
+    showFlash(`Swapped → ${item.name}`);
+  } else {
+    cart.push({ ...item, id: ++cartIdSeq, struck: false, isReplacement: false });
+  }
+  renderCart();
+}
+
+function renderCart() {
+  const container = document.getElementById('cart-items');
+  const activeItems = cart.filter(c => !c.struck);
+  const total = activeItems.reduce((s,c) => s + c.price, 0);
+
+  document.getElementById('cart-total').textContent = `₱${total}`;
+  document.getElementById('btn-confirm').disabled = activeItems.length === 0;
+
+  const count = activeItems.length;
+  document.getElementById('cart-subtitle').textContent = count
+    ? `${count} item${count>1?'s':''} in cart`
+    : 'No items yet';
+
+  if (cart.length === 0) {
+    container.innerHTML = '<div class="cart-empty">Tap items from the menu to add them here.</div>';
+    return;
+  }
+
+  container.innerHTML = cart.map(item => {
+    const isEditing = item.id === editingId;
+    const editRowHtml = isEditing ? `
+      <div class="edit-actions visible">
+        <button class="edit-btn remove" onclick="removeItem(${item.id})">✕ Remove</button>
+        <button class="edit-btn cancel" onclick="cancelEdit()">Cancel</button>
+      </div>
+    ` : '';
+
+    const repLabel = item.isReplacement ? `<div class="ci-replacement-label">↑ replacing above</div>` : '';
+    const struckClass = item.struck ? 'struck' : '';
+    const replClass = item.isReplacement ? 'replacement' : '';
+    const editingClass = isEditing ? 'editing' : '';
+
+    const editBtn = (!item.struck && !item.isReplacement)
+      ? `<button class="ci-edit-btn" onclick="startEdit(${item.id})" title="Edit item">✏️</button>`
+      : '';
+
+    return `
+      <div>
+        <div class="cart-item ${struckClass} ${replClass} ${editingClass}">
+          ${editBtn}
+          <div class="ci-info">
+            ${repLabel}
+            <div class="ci-name">${item.name}</div>
+            <div class="ci-sub">${item.sub}</div>
+          </div>
+          <div class="ci-price">₱${item.price}</div>
+        </div>
+        ${editRowHtml}
+      </div>
+    `;
+  }).join('');
+}
+
+function startEdit(id) {
+  if (editingId === id) { editingId = null; renderCart(); return; }
+  editingId = id;
+  renderCart();
+  showFlash('Tap an item on the menu to replace, or tap Remove.');
+}
+
+function cancelEdit() { editingId = null; renderCart(); }
+
+function removeItem(id) {
+  const item = cart.find(c => c.id === id);
+  if (!item) return;
+  item.struck = true;
+  editingId = null;
+  renderCart();
+  showFlash(`${item.name} removed from order.`);
+}
+
+function clearCart() {
+  cart = [];
+  editingId = null;
+  renderCart();
+}
+
+// ═══════════════════════════════════════════════════════
+//  PAYMENT
+// ═══════════════════════════════════════════════════════
+function openPayment() {
+  const activeItems = cart.filter(c => !c.struck);
+  const total = activeItems.reduce((s,c) => s + c.price, 0);
+  if (total === 0) return;
+  document.getElementById('modal-total').textContent = `₱${total}`;
+  payMethod = null;
+  document.querySelectorAll('.pay-option').forEach(e => e.classList.remove('selected'));
+  document.getElementById('gcash-input-group').classList.remove('visible');
+  document.getElementById('cash-input-group').classList.remove('visible');
+  document.getElementById('change-display').classList.remove('visible');
+  document.getElementById('cash-tendered').value = '';
+  document.getElementById('gcash-ref').value = '';
+  document.getElementById('btn-modal-confirm').disabled = true;
+  document.getElementById('pay-modal').classList.add('open');
+}
+
+function closePayment() { document.getElementById('pay-modal').classList.remove('open'); }
+
+function selectPayment(method) {
+  payMethod = method;
+  document.querySelectorAll('.pay-option').forEach(e => e.classList.remove('selected'));
+  document.querySelector('.pay-option.' + method).classList.add('selected');
+  document.getElementById('gcash-input-group').classList.toggle('visible', method === 'gcash');
+  document.getElementById('cash-input-group').classList.toggle('visible', method === 'cash');
+  document.getElementById('change-display').classList.remove('visible');
+  document.getElementById('btn-modal-confirm').disabled = method === 'cash'; // cash needs tendered
+  if (method === 'gcash') document.getElementById('btn-modal-confirm').disabled = false;
+}
+
+function calcChange() {
+  const total = parseInt(document.getElementById('modal-total').textContent.replace('₱','')) || 0;
+  const tendered = parseInt(document.getElementById('cash-tendered').value) || 0;
+  const change = tendered - total;
+  const el = document.getElementById('change-display');
+  if (tendered > 0) {
+    el.textContent = change >= 0 ? `Change due: ₱${change}` : `⚠️ Amount is short by ₱${Math.abs(change)}`;
+    el.classList.add('visible');
+    document.getElementById('btn-modal-confirm').disabled = change < 0;
+  } else {
+    el.classList.remove('visible');
+    document.getElementById('btn-modal-confirm').disabled = true;
+  }
+}
+
+function confirmOrder() {
+  const activeItems = cart.filter(c => !c.struck);
+  const total = activeItems.reduce((s,c) => s + c.price, 0);
+  const ref = payMethod === 'gcash' ? document.getElementById('gcash-ref').value : '';
+  const tendered = payMethod === 'cash' ? parseInt(document.getElementById('cash-tendered').value) : null;
+
+  // Count cups: drinks only (not add-ons)
+  const ADDONS = ['Espresso Shot', 'Flavor Syrup', 'Milk Syrup'];
+  const cups = activeItems.filter(i => !ADDONS.includes(i.name)).length;
+
+  const order = {
+    id: Date.now(),
+    date: todayKey(),
+    time: new Date().toLocaleTimeString('en-PH', {hour:'2-digit',minute:'2-digit',hour12:true}),
+    items: activeItems.map(i => i.name),
+    total,
+    cups,
+    payMethod,
+    ref,
+    tendered,
+    change: tendered !== null ? tendered - total : null
+  };
+  salesLog.push(order);
+  localStorage.setItem('sc_sales', JSON.stringify(salesLog));
+
+  closePayment();
+  clearCart();
+  showFlash(`Sale logged — ${payMethod === 'gcash' ? '📱 GCash' : '💵 Cash'} ₱${total}`);
+  updateDashboard();
+}
+
+// ═══════════════════════════════════════════════════════
+//  DASHBOARD
+// ═══════════════════════════════════════════════════════
+const CUPS_GOAL = 82;
+
+function updateDashboard() {
+  const ts = todaySales();
+  const te = todayExpenses();
+  const total = ts.reduce((s,o) => s+o.total, 0);
+  const gcashTotal = ts.filter(o=>o.payMethod==='gcash').reduce((s,o)=>s+o.total,0);
+  const cashTotal = ts.filter(o=>o.payMethod==='cash').reduce((s,o)=>s+o.total,0);
+  const expTotal = te.reduce((s,e)=>s+e.amount,0);
+  const net = total - expTotal;
+
+  document.getElementById('stat-total').textContent = `₱${total}`;
+  document.getElementById('stat-gcash').textContent = `₱${gcashTotal}`;
+  document.getElementById('stat-cash').textContent = `₱${cashTotal}`;
+  document.getElementById('stat-expenses').textContent = `₱${expTotal}`;
+  document.getElementById('stat-net').textContent = `₱${net}`;
+  document.getElementById('orders-today-count').textContent = ts.length;
+
+  // Cups goal
+  const cups = ts.reduce((s,o) => s + (o.cups || 0), 0);
+  const achieved = cups >= CUPS_GOAL;
+  const pct = Math.min(Math.round(cups / CUPS_GOAL * 100), 100);
+  const over = cups - CUPS_GOAL;
+
+  document.getElementById('cups-count').textContent = cups;
+  document.getElementById('cups-pct').textContent = achieved ? '🏆 Goal hit!' : `${pct}%`;
+  document.getElementById('cups-pct').className = 'cups-goal-pct' + (achieved ? ' achieved' : '');
+  document.getElementById('cups-bar-fill').style.width = pct + '%';
+  document.getElementById('cups-bar-fill').className = 'cups-bar-fill' + (achieved ? ' achieved' : '');
+  document.getElementById('cups-bar-marker').className = 'cups-bar-marker' + (achieved ? ' achieved' : '');
+  document.getElementById('cups-goal-card').className = 'cups-goal-card' + (achieved ? ' achieved' : '');
+
+  const remEl = document.getElementById('cups-remaining');
+  if (achieved) {
+    remEl.textContent = over > 0 ? `🔥 ${over} cups beyond the goal — incredible!` : `🎯 Goal reached exactly!`;
+    remEl.className = 'cups-remaining achieved';
+  } else {
+    const left = CUPS_GOAL - cups;
+    const msgs = [
+      `${left} cups to go — let's get brewing!`,
+      `${left} more to hit the goal — you've got this!`,
+      `Just ${left} cups away — keep pushing!`,
+    ];
+    remEl.textContent = left <= 10 ? `⚡ Only ${left} cups to go — almost there!` : msgs[0];
+    remEl.className = 'cups-remaining';
+  }
+
+  // Congrats banner
+  const banner = document.getElementById('congrats-banner');
+  if (achieved) {
+    banner.classList.add('show');
+    document.getElementById('congrats-over').textContent =
+      over > 0 ? `And you're still going — ${cups} cups total! 🚀` : '';
+  } else {
+    banner.classList.remove('show');
+  }
+
+  const gcashPct = total > 0 ? Math.round(gcashTotal/total*100) : 0;
+  document.getElementById('pay-bar-fill').style.width = gcashPct + '%';
+  document.getElementById('pay-bar-gcash-lbl').textContent = `GCash ${gcashPct}%`;
+  document.getElementById('pay-bar-cash-lbl').textContent = `Cash ${100-gcashPct}%`;
+
+  const log = document.getElementById('sales-log');
+  if (ts.length === 0) {
+    log.innerHTML = '<div class="log-empty">No orders yet today.</div>';
+    return;
+  }
+  log.innerHTML = [...ts].reverse().map(o => `
+    <div class="log-row">
+      <div class="log-time">${o.time}</div>
+      <div class="log-items">${o.items.join(', ')}</div>
+      <div class="log-total">₱${o.total}</div>
+      <div class="log-badge ${o.payMethod}">${o.payMethod === 'gcash' ? '📱 GCash' : '💵 Cash'}</div>
+    </div>
+  `).join('');
+
+  document.getElementById('dash-date').textContent = new Date().toLocaleDateString('en-PH',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+}
+
+// ═══════════════════════════════════════════════════════
+//  EXPENSES
+// ═══════════════════════════════════════════════════════
+function addExpense() {
+  const desc = document.getElementById('exp-desc').value.trim();
+  const amount = parseFloat(document.getElementById('exp-amount').value);
+  if (!desc || !amount || amount <= 0) { showFlash('Enter a description and amount.'); return; }
+  expenses.push({ id: Date.now(), date: todayKey(), desc, amount });
+  localStorage.setItem('sc_expenses', JSON.stringify(expenses));
+  document.getElementById('exp-desc').value = '';
+  document.getElementById('exp-amount').value = '';
+  renderExpenses();
+  updateDashboard();
+  showFlash(`Expense logged: ₱${amount}`);
+}
+
+function deleteExpense(id) {
+  expenses = expenses.filter(e => e.id !== id);
+  localStorage.setItem('sc_expenses', JSON.stringify(expenses));
+  renderExpenses();
+  updateDashboard();
+}
+
+function renderExpenses() {
+  const te = todayExpenses();
+  const total = te.reduce((s,e)=>s+e.amount,0);
+  document.getElementById('exp-total').textContent = `₱${total}`;
+  const list = document.getElementById('exp-list');
+  if (te.length === 0) {
+    list.innerHTML = '<div class="exp-empty">No expenses logged yet.</div>';
+    return;
+  }
+  list.innerHTML = te.map(e => `
+    <div class="exp-item">
+      <div class="exp-desc">${e.desc}</div>
+      <div class="exp-amount">₱${e.amount}</div>
+      <button class="exp-del" onclick="deleteExpense(${e.id})">✕</button>
+    </div>
+  `).join('');
+}
+
+// ═══════════════════════════════════════════════════════
+//  NAV
+// ═══════════════════════════════════════════════════════
+function switchScreen(name) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('screen-' + name).classList.add('active');
+  event.target.classList.add('active');
+  if (name === 'dashboard') updateDashboard();
+  if (name === 'expenses') renderExpenses();
+}
+
+// ═══════════════════════════════════════════════════════
+//  FLASH
+// ═══════════════════════════════════════════════════════
+let flashTimer;
+function showFlash(msg) {
+  clearTimeout(flashTimer);
+  document.getElementById('flash-msg').textContent = msg;
+  document.getElementById('flash').classList.add('show');
+  flashTimer = setTimeout(() => document.getElementById('flash').classList.remove('show'), 2800);
+}
+
+// ═══════════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════════
+buildMenus();
+updateDashboard();
+renderExpenses();
+document.getElementById('dash-date').textContent = new Date().toLocaleDateString('en-PH',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+
+// ═══════════════════════════════════════════════════════
+//  PWA SERVICE WORKER
+// ═══════════════════════════════════════════════════════
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('service-worker.js').catch(err => console.warn('SW registration failed', err));
+  });
+}
+</script>
+</body>
+</html>
